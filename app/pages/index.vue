@@ -26,6 +26,18 @@ function formatTime(isoString) {
     minute: '2-digit'
   })
 }
+
+const genreColors = {
+  'Sci-Fi': '#3B7DD8',
+  'Comedy': '#F2C14E',
+  'Action': '#D8473B',
+  'Drama': '#8B5CF6',
+  'Horror': '#7A1F2B'
+}
+
+function genreColor(genre) {
+  return genreColors[genre] || '#4A4A58'
+}
 </script>
 
 <template>
@@ -40,31 +52,41 @@ function formatTime(isoString) {
 
     <div class="movie-grid">
       <div v-for="movie in movies" :key="movie.ID" class="movie-card">
-        <div class="movie-info">
-          <h2>{{ movie.TITLE }}</h2>
+        <div class="poster" :style="!movie.POSTER_URL ? { background: genreColor(movie.GENRE) } : null">
+          <img v-if="movie.POSTER_URL" :src="movie.POSTER_URL" :alt="`${movie.TITLE} poster`" />
+          <svg v-else class="poster-icon" width="56" height="56" viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="1.5" />
+            <path d="M2 8h20M7 4v4M17 4v4" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          <div class="poster-overlay">
+            <h2>{{ movie.TITLE }}</h2>
+          </div>
+        </div>
+
+        <div class="movie-body">
           <div class="movie-meta">
             <span class="badge">{{ movie.GENRE }}</span>
             <span class="duration">{{ movie.DURATION_MINUTES }} min</span>
           </div>
-        </div>
 
-        <button type="button" class="toggle-btn" @click="toggleShowtimes(movie.ID)">
-          {{ expandedMovieId === movie.ID ? 'Hide showtimes' : 'View showtimes' }}
-        </button>
+          <button type="button" class="toggle-btn" @click="toggleShowtimes(movie.ID)">
+            {{ expandedMovieId === movie.ID ? 'Hide showtimes' : 'View showtimes' }}
+          </button>
 
-        <div v-if="expandedMovieId === movie.ID" class="showtimes">
-          <p v-if="!showtimesByMovie[movie.ID]" class="muted">Loading showtimes...</p>
-          <p v-else-if="!showtimesByMovie[movie.ID].length" class="muted">No showtimes scheduled.</p>
-          <NuxtLink
-            v-for="s in showtimesByMovie[movie.ID]"
-            :key="s.ID"
-            :to="`/showtime/${s.ID}`"
-            class="showtime-chip"
-          >
-            <span class="showtime-time">{{ formatTime(s.STARTS_AT) }}</span>
-            <span class="showtime-hall">{{ s.HALL_NAME }}</span>
-            <span class="showtime-price">${{ s.PRICE.toFixed(2) }}</span>
-          </NuxtLink>
+          <div v-if="expandedMovieId === movie.ID" class="showtimes">
+            <p v-if="!showtimesByMovie[movie.ID]" class="muted">Loading showtimes...</p>
+            <p v-else-if="!showtimesByMovie[movie.ID].length" class="muted">No showtimes scheduled.</p>
+            <NuxtLink
+              v-for="s in showtimesByMovie[movie.ID]"
+              :key="s.ID"
+              :to="`/showtime/${s.ID}`"
+              class="showtime-chip"
+            >
+              <span class="showtime-time">{{ formatTime(s.STARTS_AT) }}</span>
+              <span class="showtime-hall">{{ s.HALL_NAME }}</span>
+              <span class="showtime-price">${{ s.PRICE.toFixed(2) }}</span>
+            </NuxtLink>
+          </div>
         </div>
       </div>
     </div>
@@ -117,14 +139,44 @@ h1 {
   background: #1A1A22;
   border: 1px solid #2C2C38;
   border-radius: 12px;
-  padding: 20px;
+  overflow: hidden;
 }
 
-.movie-info h2 {
+.poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.poster-icon {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.poster-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 24px 16px 12px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
+}
+
+.poster-overlay h2 {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.6em;
+  font-size: 1.5em;
   letter-spacing: 0.02em;
-  margin: 0 0 8px;
+  margin: 0;
+  color: #F2F0EA;
+}
+
+.movie-body {
+  padding: 16px 20px 20px;
 }
 
 .movie-meta {

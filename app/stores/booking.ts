@@ -3,6 +3,7 @@ interface Movie {
   TITLE: string;
   GENRE: string;
   DURATION_MINUTES: number;
+  POSTER_URL: string | null;
 }
 
 interface Showtime {

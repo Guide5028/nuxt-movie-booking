@@ -2,7 +2,7 @@ import { dbQuery } from "../utils/db"
 
 export default defineEventHandler(async () => {
   const result = await dbQuery(`
-    SELECT id, title, genre, duration_minutes
+    SELECT id, title, genre, duration_minutes, poster_url
     FROM movies
     ORDER BY title
   `)
