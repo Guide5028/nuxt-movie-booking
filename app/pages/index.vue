@@ -6,13 +6,40 @@ const { searchQuery, genreFilter } = storeToRefs(catalog)
 
 const expandedMovieId = ref(null)
 const promotions = ref([])
+const currentSlide = ref(0)
+let slideTimer = null
 
 onMounted(async () => {
   store.fetchMovies()
   promotions.value = await $fetch('/api/promotions')
+  restartTimer()
+})
+
+onUnmounted(() => {
+  clearInterval(slideTimer)
 })
 
 const trendingMovies = computed(() => movies.value.filter(m => m.IS_TRENDING))
+
+function goToSlide(i) {
+  currentSlide.value = i
+  restartTimer()
+}
+
+function nextSlide() {
+  if (!trendingMovies.value.length) return
+  currentSlide.value = (currentSlide.value + 1) % trendingMovies.value.length
+}
+
+function prevSlide() {
+  if (!trendingMovies.value.length) return
+  currentSlide.value = (currentSlide.value - 1 + trendingMovies.value.length) % trendingMovies.value.length
+}
+
+function restartTimer() {
+  clearInterval(slideTimer)
+  slideTimer = setInterval(nextSlide, 6000)
+}
 
 const availableGenres = computed(() => [...new Set(movies.value.map(m => m.GENRE))].sort())
 
@@ -78,21 +105,53 @@ function genreColor(genre) {
 </script>
 
 <template>
-  <div class="page">
-    <section v-if="trendingMovies.length" class="hero">
-      <h2 class="section-title">Trending Now</h2>
-      <div class="hero-row">
-        <div v-for="m in trendingMovies" :key="m.ID" class="hero-card" :style="{ background: genreColor(m.GENRE) }">
-          <div class="hero-info">
+  <div>
+    <section v-if="trendingMovies.length" class="hero-carousel">
+      <div
+        v-for="(m, i) in trendingMovies"
+        v-show="i === currentSlide"
+        :key="m.ID"
+        class="hero-slide"
+        :style="{ background: `radial-gradient(ellipse at 30% 50%, ${genreColor(m.GENRE)}40, #0F0F14 65%)` }"
+      >
+        <div class="hero-left">
+          <div class="hero-bg-text">BOOK YOUR<br />SEAT NOW</div>
+          <h1 class="hero-title">{{ m.TITLE }}</h1>
+          <div class="hero-meta">
             <span class="badge">{{ m.GENRE }}</span>
-            <h3>{{ m.TITLE }}</h3>
-            <p class="hero-duration">{{ m.DURATION_MINUTES }} min</p>
-            <button type="button" class="hero-btn" @click="scrollToMovie(m.ID)">View Showtimes</button>
+            <span>{{ m.DURATION_MINUTES }} min</span>
+          </div>
+          <button type="button" class="hero-btn" @click="scrollToMovie(m.ID)">Buy Tickets</button>
+        </div>
+
+        <div class="hero-art">
+          <img v-if="m.POSTER_URL" :src="m.POSTER_URL" :alt="`${m.TITLE} poster`" />
+          <div v-else class="hero-art-placeholder" :style="{ background: genreColor(m.GENRE) }">
+            <svg width="72" height="72" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="1.3" />
+              <path d="M2 8h20M7 4v4M17 4v4" stroke="currentColor" stroke-width="1.3" />
+            </svg>
           </div>
         </div>
       </div>
+
+      <button type="button" class="hero-arrow prev" aria-label="Previous slide" @click="prevSlide(); restartTimer()">‹</button>
+      <button type="button" class="hero-arrow next" aria-label="Next slide" @click="nextSlide(); restartTimer()">›</button>
+
+      <div class="hero-dots">
+        <button
+          v-for="(m, i) in trendingMovies"
+          :key="m.ID"
+          type="button"
+          class="hero-dot"
+          :class="{ active: i === currentSlide }"
+          :aria-label="`Go to slide ${i + 1}`"
+          @click="goToSlide(i)"
+        ></button>
+      </div>
     </section>
 
+    <div class="page">
     <section v-if="promotions.length" class="promotions">
       <h2 class="section-title">Promotions</h2>
       <div class="promo-row">
@@ -158,6 +217,7 @@ function genreColor(genre) {
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -183,50 +243,139 @@ body {
   color: #F2F0EA;
 }
 
-.hero {
-  margin-bottom: 32px;
+.hero-carousel {
+  position: relative;
+  height: 440px;
+  overflow: hidden;
+  background: #0F0F14;
 }
 
-.hero-row {
+.hero-slide {
+  position: absolute;
+  inset: 0;
   display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 0 80px;
 }
 
-.hero-card {
-  flex: 0 0 320px;
-  height: 160px;
-  border-radius: 14px;
-  display: flex;
-  align-items: flex-end;
-  padding: 20px;
+.hero-left {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
 }
 
-.hero-info h3 {
+.hero-bg-text {
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.8em;
+  font-size: clamp(2.6em, 5.5vw, 4.2em);
+  line-height: 0.95;
   letter-spacing: 0.02em;
-  margin: 6px 0 2px;
-  color: #12141A;
+  color: #F2C14E;
+  text-shadow: 0 0 40px rgba(242, 193, 78, 0.35);
+  margin-bottom: 20px;
 }
 
-.hero-duration {
-  margin: 0 0 10px;
-  color: rgba(15, 15, 20, 0.7);
-  font-size: 0.85em;
+.hero-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2em;
+  letter-spacing: 0.02em;
+  margin: 0 0 12px;
+  color: #F2F0EA;
+}
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #8B8894;
+  font-size: 0.9em;
+  margin-bottom: 20px;
 }
 
 .hero-btn {
-  padding: 8px 16px;
+  padding: 12px 24px;
   border: none;
   border-radius: 8px;
-  background: #12141A;
-  color: #F2F0EA;
+  background: #F2C14E;
+  color: #0F0F14;
   font-family: 'Manrope', sans-serif;
   font-weight: 700;
-  font-size: 0.8em;
+  font-size: 0.9em;
   cursor: pointer;
+}
+
+.hero-art {
+  flex-shrink: 0;
+  width: 260px;
+  height: 360px;
+  border-radius: 16px;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.hero-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero-art-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.hero-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(242, 240, 234, 0.25);
+  background: rgba(15, 15, 20, 0.5);
+  color: #F2F0EA;
+  font-size: 1.4em;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.hero-arrow.prev {
+  left: 24px;
+}
+
+.hero-arrow.next {
+  right: 24px;
+}
+
+.hero-dots {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  z-index: 2;
+}
+
+.hero-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(242, 240, 234, 0.3);
+  cursor: pointer;
+}
+
+.hero-dot.active {
+  width: 24px;
+  background: #F2C14E;
 }
 
 .promotions {
