@@ -4,6 +4,7 @@ interface Movie {
   GENRE: string;
   DURATION_MINUTES: number;
   POSTER_URL: string | null;
+  IS_TRENDING: number;
 }
 
 interface Showtime {
@@ -12,11 +13,15 @@ interface Showtime {
   STARTS_AT: string;
   PRICE: number;
   SEAT_COUNT: number;
+  THEATER_ID: number;
+  THEATER_NAME: string;
+  THEATER_CITY: string;
 }
 
 interface SeatBooking {
   ID: number;
   SEAT_NUMBER: string;
+  CUSTOMER_ID: number;
   CUSTOMER_NAME: string;
 }
 
@@ -64,7 +69,7 @@ export const useBookingStore = defineStore("booking", () => {
     }
   }
 
-  async function bookSeats(payload: { showtimeId: number; customerName: string; seatNumbers: string[] }) {
+  async function bookSeats(payload: { showtimeId: number; seatNumbers: string[] }) {
     await $fetch("/api/bookings", { method: "POST", body: payload });
     await fetchShowtime(payload.showtimeId);
   }

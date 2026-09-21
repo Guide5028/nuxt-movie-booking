@@ -3,17 +3,13 @@ const route = useRoute()
 const showtimeId = Number(route.params.id)
 
 const store = useBookingStore()
+const auth = useAuthStore()
 const { currentShowtime, loading, error } = storeToRefs(store)
+const { customer, ready } = storeToRefs(auth)
 
 const selectedSeats = ref([])
-const customerName = ref('')
 const bookingError = ref('')
 const attemptedSubmit = ref(false)
-
-const nameError = computed(() => {
-  if (!attemptedSubmit.value) return ''
-  return customerName.value.trim() ? '' : 'Enter your name to book a seat.'
-})
 
 const seatError = computed(() => {
   if (!attemptedSubmit.value) return ''
@@ -27,6 +23,7 @@ const subtotal = computed(() => {
 
 onMounted(() => {
   store.fetchShowtime(showtimeId)
+  auth.fetchMe()
 })
 
 const seatRows = computed(() => {
@@ -67,15 +64,13 @@ function removeSelectedSeat(seat) {
 async function confirmBooking() {
   attemptedSubmit.value = true
   bookingError.value = ''
-  if (!selectedSeats.value.length || !customerName.value.trim()) return
+  if (!selectedSeats.value.length) return
   try {
     await store.bookSeats({
       showtimeId,
-      customerName: customerName.value.trim(),
       seatNumbers: selectedSeats.value
     })
     selectedSeats.value = []
-    customerName.value = ''
     attemptedSubmit.value = false
   } catch (e) {
     bookingError.value = e.data?.statusMessage || 'Could not book those seats.'
@@ -109,7 +104,7 @@ function formatDateTime(isoString) {
         <h1>{{ currentShowtime.MOVIE_TITLE }}</h1>
         <div class="meta">
           <span class="badge">{{ currentShowtime.GENRE }}</span>
-          <span>{{ currentShowtime.HALL_NAME }}</span>
+          <span>{{ currentShowtime.THEATER_NAME }} · {{ currentShowtime.HALL_NAME }}</span>
           <span>{{ formatDateTime(currentShowtime.STARTS_AT) }}</span>
           <span class="price">${{ currentShowtime.PRICE.toFixed(2) }} / seat</span>
         </div>
@@ -162,15 +157,8 @@ function formatDateTime(isoString) {
           </p>
           <p v-if="seatError" class="error-text">{{ seatError }}</p>
 
-          <input
-            v-model="customerName"
-            placeholder="Your name"
-            aria-label="Your name"
-            :class="{ 'input-error': nameError }"
-          />
-          <p v-if="nameError" class="error-text">{{ nameError }}</p>
-
-          <button type="button" class="confirm-btn" @click="confirmBooking">
+          <p v-if="ready && !customer" class="muted">Log in from the top bar to confirm a booking.</p>
+          <button v-else type="button" class="confirm-btn" @click="confirmBooking">
             Confirm Booking
           </button>
           <p v-if="bookingError" class="error-text">{{ bookingError }}</p>
@@ -181,7 +169,13 @@ function formatDateTime(isoString) {
             <ul v-else>
               <li v-for="b in currentShowtime.bookings" :key="b.ID">
                 <span>{{ b.SEAT_NUMBER }} — {{ b.CUSTOMER_NAME }}</span>
-                <button type="button" class="cancel-btn" aria-label="Cancel booking" @click="cancel(b.ID)">✕</button>
+                <button
+                  v-if="customer && b.CUSTOMER_ID === customer.ID"
+                  type="button"
+                  class="cancel-btn"
+                  aria-label="Cancel booking"
+                  @click="cancel(b.ID)"
+                >✕</button>
               </li>
             </ul>
           </div>
@@ -422,20 +416,6 @@ h1 {
   font-size: 0.85em;
   color: #8B8894;
   margin: 0;
-}
-
-input {
-  padding: 11px 12px;
-  border: 1px solid #2C2C38;
-  border-radius: 8px;
-  background: #0F0F14;
-  color: #F2F0EA;
-  font-family: 'Manrope', sans-serif;
-  font-size: 0.9em;
-}
-
-input.input-error {
-  border-color: #E5484D;
 }
 
 .confirm-btn {

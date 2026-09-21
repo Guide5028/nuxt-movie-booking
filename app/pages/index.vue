@@ -1,11 +1,27 @@
 <script setup>
 const store = useBookingStore()
+const catalog = useCatalogStore()
 const { movies, showtimesByMovie, loading, error } = storeToRefs(store)
+const { searchQuery, genreFilter } = storeToRefs(catalog)
 
 const expandedMovieId = ref(null)
+const promotions = ref([])
 
-onMounted(() => {
+onMounted(async () => {
   store.fetchMovies()
+  promotions.value = await $fetch('/api/promotions')
+})
+
+const trendingMovies = computed(() => movies.value.filter(m => m.IS_TRENDING))
+
+const availableGenres = computed(() => [...new Set(movies.value.map(m => m.GENRE))].sort())
+
+const filteredMovies = computed(() => {
+  return movies.value.filter(m => {
+    const matchesGenre = genreFilter.value === 'All' || m.GENRE === genreFilter.value
+    const matchesSearch = m.TITLE.toLowerCase().includes(searchQuery.value.trim().toLowerCase())
+    return matchesGenre && matchesSearch
+  })
 })
 
 async function toggleShowtimes(movieId) {
@@ -17,6 +33,27 @@ async function toggleShowtimes(movieId) {
   if (!showtimesByMovie.value[movieId]) {
     await store.fetchShowtimes(movieId)
   }
+}
+
+async function scrollToMovie(movieId) {
+  expandedMovieId.value = movieId
+  if (!showtimesByMovie.value[movieId]) {
+    await store.fetchShowtimes(movieId)
+  }
+  nextTick(() => {
+    document.getElementById(`movie-${movieId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
+
+function groupByTheater(showtimes) {
+  const map = new Map()
+  for (const s of showtimes) {
+    if (!map.has(s.THEATER_NAME)) {
+      map.set(s.THEATER_NAME, { name: s.THEATER_NAME, city: s.THEATER_CITY, showtimes: [] })
+    }
+    map.get(s.THEATER_NAME).showtimes.push(s)
+  }
+  return [...map.values()]
 }
 
 function formatTime(isoString) {
@@ -42,16 +79,48 @@ function genreColor(genre) {
 
 <template>
   <div class="page">
+    <section v-if="trendingMovies.length" class="hero">
+      <h2 class="section-title">Trending Now</h2>
+      <div class="hero-row">
+        <div v-for="m in trendingMovies" :key="m.ID" class="hero-card" :style="{ background: genreColor(m.GENRE) }">
+          <div class="hero-info">
+            <span class="badge">{{ m.GENRE }}</span>
+            <h3>{{ m.TITLE }}</h3>
+            <p class="hero-duration">{{ m.DURATION_MINUTES }} min</p>
+            <button type="button" class="hero-btn" @click="scrollToMovie(m.ID)">View Showtimes</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="promotions.length" class="promotions">
+      <h2 class="section-title">Promotions</h2>
+      <div class="promo-row">
+        <div v-for="p in promotions" :key="p.ID" class="promo-card">
+          <h3>{{ p.TITLE }}</h3>
+          <p>{{ p.DESCRIPTION }}</p>
+        </div>
+      </div>
+    </section>
+
     <div class="header">
       <h1>Now Showing</h1>
       <p class="subtitle">Pick a movie, pick a showtime, pick your seat.</p>
     </div>
 
+    <div class="filter-bar">
+      <select v-model="genreFilter" aria-label="Filter by genre">
+        <option value="All">All Genres</option>
+        <option v-for="g in availableGenres" :key="g" :value="g">{{ g }}</option>
+      </select>
+    </div>
+
     <p v-if="loading" class="muted">Loading movies...</p>
     <p v-else-if="error" class="muted">{{ error }}</p>
+    <p v-else-if="!filteredMovies.length" class="muted">No movies match your search.</p>
 
     <div class="movie-grid">
-      <div v-for="movie in movies" :key="movie.ID" class="movie-card">
+      <div v-for="movie in filteredMovies" :key="movie.ID" :id="`movie-${movie.ID}`" class="movie-card">
         <div class="poster" :style="!movie.POSTER_URL ? { background: genreColor(movie.GENRE) } : null">
           <img v-if="movie.POSTER_URL" :src="movie.POSTER_URL" :alt="`${movie.TITLE} poster`" />
           <svg v-else class="poster-icon" width="56" height="56" viewBox="0 0 24 24" fill="none">
@@ -76,16 +145,15 @@ function genreColor(genre) {
           <div v-if="expandedMovieId === movie.ID" class="showtimes">
             <p v-if="!showtimesByMovie[movie.ID]" class="muted">Loading showtimes...</p>
             <p v-else-if="!showtimesByMovie[movie.ID].length" class="muted">No showtimes scheduled.</p>
-            <NuxtLink
-              v-for="s in showtimesByMovie[movie.ID]"
-              :key="s.ID"
-              :to="`/showtime/${s.ID}`"
-              class="showtime-chip"
-            >
-              <span class="showtime-time">{{ formatTime(s.STARTS_AT) }}</span>
-              <span class="showtime-hall">{{ s.HALL_NAME }}</span>
-              <span class="showtime-price">${{ s.PRICE.toFixed(2) }}</span>
-            </NuxtLink>
+            <div v-else v-for="group in groupByTheater(showtimesByMovie[movie.ID])" :key="group.name" class="theater-group">
+              <div class="theater-name">{{ group.name }} <span class="theater-city">· {{ group.city }}</span></div>
+              <div class="theater-times">
+                <NuxtLink v-for="s in group.showtimes" :key="s.ID" :to="`/showtime/${s.ID}`" class="time-pill">
+                  {{ formatTime(s.STARTS_AT) }}
+                  <span class="time-price">${{ s.PRICE.toFixed(2) }}</span>
+                </NuxtLink>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -101,14 +169,101 @@ body {
 
 .page {
   max-width: 960px;
-  margin: 40px auto;
-  padding: 24px;
+  margin: 0 auto;
+  padding: 32px 24px;
   font-family: 'Manrope', sans-serif;
   color: #F2F0EA;
 }
 
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.6em;
+  letter-spacing: 0.02em;
+  margin: 0 0 14px;
+  color: #F2F0EA;
+}
+
+.hero {
+  margin-bottom: 32px;
+}
+
+.hero-row {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.hero-card {
+  flex: 0 0 320px;
+  height: 160px;
+  border-radius: 14px;
+  display: flex;
+  align-items: flex-end;
+  padding: 20px;
+}
+
+.hero-info h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8em;
+  letter-spacing: 0.02em;
+  margin: 6px 0 2px;
+  color: #12141A;
+}
+
+.hero-duration {
+  margin: 0 0 10px;
+  color: rgba(15, 15, 20, 0.7);
+  font-size: 0.85em;
+}
+
+.hero-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #12141A;
+  color: #F2F0EA;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+
+.promotions {
+  margin-bottom: 32px;
+}
+
+.promo-row {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.promo-card {
+  flex: 0 0 280px;
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: #1A1A22;
+  border: 1px solid #2C2C38;
+}
+
+.promo-card h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.2em;
+  letter-spacing: 0.02em;
+  margin: 0 0 6px;
+  color: #F2C14E;
+}
+
+.promo-card p {
+  margin: 0;
+  font-size: 0.85em;
+  color: #8B8894;
+}
+
 .header {
-  margin-bottom: 28px;
+  margin-bottom: 16px;
 }
 
 h1 {
@@ -122,6 +277,20 @@ h1 {
 .subtitle {
   color: #8B8894;
   margin-top: 4px;
+}
+
+.filter-bar {
+  margin-bottom: 20px;
+}
+
+.filter-bar select {
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid #2C2C38;
+  background: #1A1A22;
+  color: #F2F0EA;
+  font-family: 'Manrope', sans-serif;
+  font-size: 0.85em;
 }
 
 .muted {
@@ -140,6 +309,7 @@ h1 {
   border: 1px solid #2C2C38;
   border-radius: 12px;
   overflow: hidden;
+  scroll-margin-top: 20px;
 }
 
 .poster {
@@ -221,36 +391,52 @@ h1 {
   margin-top: 14px;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+}
+
+.theater-group {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-.showtime-chip {
+.theater-name {
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+.theater-city {
+  font-weight: 400;
+  color: #8B8894;
+}
+
+.theater-times {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.time-pill {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-radius: 8px;
   background: #0F0F14;
   border: 1px solid #2C2C38;
   color: #F2F0EA;
   text-decoration: none;
-  font-size: 0.85em;
+  font-size: 0.8em;
+  font-weight: 600;
 }
 
-.showtime-chip:hover {
+.time-pill:hover {
   border-color: #F2C14E;
 }
 
-.showtime-time {
-  font-weight: 600;
-}
-
-.showtime-hall {
-  color: #8B8894;
-}
-
-.showtime-price {
+.time-price {
   color: #F2C14E;
   font-weight: 600;
+  font-size: 0.9em;
 }
 </style>

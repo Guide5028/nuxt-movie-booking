@@ -10,6 +10,7 @@ useHead({
 <template>
   <div>
     <NuxtRouteAnnouncer />
+    <AppNavBar />
     <NuxtPage />
   </div>
 </template>

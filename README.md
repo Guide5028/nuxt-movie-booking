@@ -73,16 +73,23 @@ App runs at `http://localhost:3000`.
 
 ## Data model
 
-- **movies** — title, genre, duration
-- **showtimes** — a movie playing in a hall at a specific time, with a price and seat count
+- **theaters** — a cinema location (name, city)
+- **movies** — title, genre, duration, trending flag for the homepage hero
+- **showtimes** — a movie playing at a theater/hall at a specific time, with a price and seat count
+- **customers** — a mock account (name, email — no password)
 - **bookings** — a customer's seat reservation for a showtime (one seat per booking; a showtime/seat pair can only be booked once)
+- **promotions** — homepage marketing content (combo deals, discounts)
+
+## Auth
+
+Login is intentionally simple for this learning project: give a name and email, and the app finds or creates a `customers` row and remembers you via an httpOnly cookie (`customer_id`). There's no password — good enough to demo per-user ownership (only you can cancel your own booking), not meant for production use.
 
 ## Roadmap
 
 - [x] Nuxt project scaffold
 - [x] Oracle DB running locally via Docker
 - [x] Server-side connection pool (`server/utils/db.ts`)
-- [x] Database schema (`movies`, `showtimes`, `bookings` tables)
+- [x] Database schema (`theaters`, `movies`, `showtimes`, `customers`, `bookings`, `promotions`)
 - [x] CRUD API routes (`server/api/`)
 - [x] Pinia store wired to the API
 - [x] UI: movie list, showtime picker, seat selection, booking confirmation
@@ -90,7 +97,16 @@ App runs at `http://localhost:3000`.
 - [x] Styling pass (cinema dark theme)
 - [x] Form validation / nicer error states
 - [x] Book multiple seats in one transaction (atomic — all seats book or none)
-- [ ] Cancel-my-own-booking only (currently anyone can cancel any booking)
+- [x] Multiple theater locations, showtimes grouped by theater
+- [x] Mock login/logout (cookie-based customer session)
+- [x] Cancel-my-own-booking only (server-enforced 403 + hidden in UI)
+- [x] Navbar with search
+- [x] Hero banner for trending movies
+- [x] Genre filter
+- [x] Promotions section
+- [ ] Real password-based accounts (if this ever needs to be more than a demo)
+- [ ] Admin UI for adding movies/showtimes (currently SQL-only)
+- [ ] Block booking showtimes that have already started
 
 ## License
 
