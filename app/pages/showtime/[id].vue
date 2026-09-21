@@ -8,6 +8,17 @@ const { currentShowtime, loading, error } = storeToRefs(store)
 const selectedSeat = ref(null)
 const customerName = ref('')
 const bookingError = ref('')
+const attemptedSubmit = ref(false)
+
+const nameError = computed(() => {
+  if (!attemptedSubmit.value) return ''
+  return customerName.value.trim() ? '' : 'Enter your name to book a seat.'
+})
+
+const seatError = computed(() => {
+  if (!attemptedSubmit.value) return ''
+  return selectedSeat.value ? '' : 'Pick a seat on the map first.'
+})
 
 onMounted(() => {
   store.fetchShowtime(showtimeId)
@@ -40,16 +51,18 @@ function selectSeat(seat) {
 }
 
 async function confirmBooking() {
+  attemptedSubmit.value = true
   bookingError.value = ''
-  if (!selectedSeat.value || !customerName.value) return
+  if (!selectedSeat.value || !customerName.value.trim()) return
   try {
     await store.bookSeat({
       showtimeId,
-      customerName: customerName.value,
+      customerName: customerName.value.trim(),
       seatNumber: selectedSeat.value
     })
     selectedSeat.value = null
     customerName.value = ''
+    attemptedSubmit.value = false
   } catch (e) {
     bookingError.value = e.data?.statusMessage || 'Could not book that seat.'
   }
@@ -124,9 +137,17 @@ function formatDateTime(isoString) {
           <h2>Book Your Seat</h2>
           <p v-if="selectedSeat" class="selected-seat">Seat {{ selectedSeat }}</p>
           <p v-else class="muted">Pick a seat from the map.</p>
+          <p v-if="seatError" class="error-text">{{ seatError }}</p>
 
-          <input v-model="customerName" placeholder="Your name" aria-label="Your name" />
-          <button type="button" class="confirm-btn" :disabled="!selectedSeat || !customerName" @click="confirmBooking">
+          <input
+            v-model="customerName"
+            placeholder="Your name"
+            aria-label="Your name"
+            :class="{ 'input-error': nameError }"
+          />
+          <p v-if="nameError" class="error-text">{{ nameError }}</p>
+
+          <button type="button" class="confirm-btn" @click="confirmBooking">
             Confirm Booking
           </button>
           <p v-if="bookingError" class="error-text">{{ bookingError }}</p>
@@ -361,6 +382,10 @@ input {
   font-size: 0.9em;
 }
 
+input.input-error {
+  border-color: #E5484D;
+}
+
 .confirm-btn {
   padding: 12px;
   border: none;
@@ -370,12 +395,6 @@ input {
   font-family: 'Manrope', sans-serif;
   font-weight: 700;
   cursor: pointer;
-}
-
-.confirm-btn:disabled {
-  background: #2C2C38;
-  color: #6B6874;
-  cursor: not-allowed;
 }
 
 .error-text {
