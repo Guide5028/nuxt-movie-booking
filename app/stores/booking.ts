@@ -64,7 +64,7 @@ export const useBookingStore = defineStore("booking", () => {
     }
   }
 
-  async function bookSeat(payload: { showtimeId: number; customerName: string; seatNumber: string }) {
+  async function bookSeats(payload: { showtimeId: number; customerName: string; seatNumbers: string[] }) {
     await $fetch("/api/bookings", { method: "POST", body: payload });
     await fetchShowtime(payload.showtimeId);
   }
@@ -83,7 +83,7 @@ export const useBookingStore = defineStore("booking", () => {
     fetchMovies,
     fetchShowtimes,
     fetchShowtime,
-    bookSeat,
+    bookSeats,
     cancelBooking,
   };
 });

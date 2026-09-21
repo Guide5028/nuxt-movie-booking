@@ -88,7 +88,8 @@ App runs at `http://localhost:3000`.
 - [x] UI: movie list, showtime picker, seat selection, booking confirmation
 - [x] Prevent double-booking a seat (unique constraint + 409 response)
 - [x] Styling pass (cinema dark theme)
-- [ ] Form validation / nicer error states
+- [x] Form validation / nicer error states
+- [x] Book multiple seats in one transaction (atomic — all seats book or none)
 - [ ] Cancel-my-own-booking only (currently anyone can cancel any booking)
 
 ## License

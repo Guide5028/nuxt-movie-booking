@@ -5,7 +5,7 @@ const showtimeId = Number(route.params.id)
 const store = useBookingStore()
 const { currentShowtime, loading, error } = storeToRefs(store)
 
-const selectedSeat = ref(null)
+const selectedSeats = ref([])
 const customerName = ref('')
 const bookingError = ref('')
 const attemptedSubmit = ref(false)
@@ -17,7 +17,12 @@ const nameError = computed(() => {
 
 const seatError = computed(() => {
   if (!attemptedSubmit.value) return ''
-  return selectedSeat.value ? '' : 'Pick a seat on the map first.'
+  return selectedSeats.value.length ? '' : 'Pick at least one seat on the map.'
+})
+
+const subtotal = computed(() => {
+  if (!currentShowtime.value) return 0
+  return selectedSeats.value.length * currentShowtime.value.PRICE
 })
 
 onMounted(() => {
@@ -47,24 +52,33 @@ const bookedSeatNumbers = computed(() => {
 
 function selectSeat(seat) {
   if (bookedSeatNumbers.value.has(seat)) return
-  selectedSeat.value = selectedSeat.value === seat ? null : seat
+  const index = selectedSeats.value.indexOf(seat)
+  if (index === -1) {
+    selectedSeats.value.push(seat)
+  } else {
+    selectedSeats.value.splice(index, 1)
+  }
+}
+
+function removeSelectedSeat(seat) {
+  selectedSeats.value = selectedSeats.value.filter(s => s !== seat)
 }
 
 async function confirmBooking() {
   attemptedSubmit.value = true
   bookingError.value = ''
-  if (!selectedSeat.value || !customerName.value.trim()) return
+  if (!selectedSeats.value.length || !customerName.value.trim()) return
   try {
-    await store.bookSeat({
+    await store.bookSeats({
       showtimeId,
       customerName: customerName.value.trim(),
-      seatNumber: selectedSeat.value
+      seatNumbers: selectedSeats.value
     })
-    selectedSeat.value = null
+    selectedSeats.value = []
     customerName.value = ''
     attemptedSubmit.value = false
   } catch (e) {
-    bookingError.value = e.data?.statusMessage || 'Could not book that seat.'
+    bookingError.value = e.data?.statusMessage || 'Could not book those seats.'
   }
 }
 
@@ -115,7 +129,7 @@ function formatDateTime(isoString) {
                 class="seat"
                 :class="{
                   booked: bookedSeatNumbers.has(seat),
-                  selected: selectedSeat === seat
+                  selected: selectedSeats.includes(seat)
                 }"
                 :disabled="bookedSeatNumbers.has(seat)"
                 :aria-label="`Seat ${seat}`"
@@ -134,9 +148,18 @@ function formatDateTime(isoString) {
         </div>
 
         <div class="panel booking-panel">
-          <h2>Book Your Seat</h2>
-          <p v-if="selectedSeat" class="selected-seat">Seat {{ selectedSeat }}</p>
-          <p v-else class="muted">Pick a seat from the map.</p>
+          <h2>Book Your Seats</h2>
+
+          <p v-if="!selectedSeats.length" class="muted">Pick one or more seats from the map.</p>
+          <div v-else class="selected-chips">
+            <span v-for="seat in selectedSeats" :key="seat" class="chip">
+              {{ seat }}
+              <button type="button" :aria-label="`Remove seat ${seat}`" @click="removeSelectedSeat(seat)">✕</button>
+            </span>
+          </div>
+          <p v-if="selectedSeats.length" class="subtotal">
+            {{ selectedSeats.length }} seat{{ selectedSeats.length > 1 ? 's' : '' }} — ${{ subtotal.toFixed(2) }}
+          </p>
           <p v-if="seatError" class="error-text">{{ seatError }}</p>
 
           <input
@@ -364,11 +387,40 @@ h1 {
   gap: 12px;
 }
 
-.selected-seat {
+.selected-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  background: #F2C14E;
+  color: #0F0F14;
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.4em;
+  font-size: 0.95em;
   letter-spacing: 0.02em;
-  color: #F2C14E;
+}
+
+.chip button {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(15, 15, 20, 0.2);
+  color: #0F0F14;
+  font-size: 0.65em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.subtotal {
+  font-size: 0.85em;
+  color: #8B8894;
   margin: 0;
 }
 

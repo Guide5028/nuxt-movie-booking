@@ -31,3 +31,20 @@ export async function dbQuery<T = any>(
     await connection.close()
   }
 }
+
+export async function dbTransaction<T>(
+  fn: (connection: oracledb.Connection) => Promise<T>
+) {
+  const dbPool = await getPool()
+  const connection = await dbPool.getConnection()
+  try {
+    const result = await fn(connection)
+    await connection.commit()
+    return result
+  } catch (err) {
+    await connection.rollback()
+    throw err
+  } finally {
+    await connection.close()
+  }
+}
