@@ -2,7 +2,7 @@
 
 A full-stack movie ticket booking app built to learn **Nuxt 4**, **Pinia**, and **Oracle Database** end-to-end — browse movies and showtimes, pick a seat, and book a ticket, backed by real relational persistence.
 
-> 🚧 Work in progress — see [Roadmap](#roadmap) below for current status.
+> ✅ Core booking loop working end-to-end: browse movies, pick a showtime and seat, book, and cancel — backed by Oracle. See [Roadmap](#roadmap) for what's next.
 
 ## Stack
 
@@ -83,11 +83,13 @@ App runs at `http://localhost:3000`.
 - [x] Oracle DB running locally via Docker
 - [x] Server-side connection pool (`server/utils/db.ts`)
 - [x] Database schema (`movies`, `showtimes`, `bookings` tables)
-- [ ] CRUD API routes (`server/api/`)
-- [ ] Pinia store wired to the API
-- [ ] UI: movie list, showtime picker, seat selection, booking confirmation
-- [ ] Prevent double-booking a seat
-- [ ] Styling pass
+- [x] CRUD API routes (`server/api/`)
+- [x] Pinia store wired to the API
+- [x] UI: movie list, showtime picker, seat selection, booking confirmation
+- [x] Prevent double-booking a seat (unique constraint + 409 response)
+- [x] Styling pass (cinema dark theme)
+- [ ] Form validation / nicer error states
+- [ ] Cancel-my-own-booking only (currently anyone can cancel any booking)
 
 ## License
 
